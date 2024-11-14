@@ -11,6 +11,7 @@
 #include <thread>
 
 static float old_volume = 0.0f;
+static int sessionCountOld = 0;
 
 void syncMasterVolumeToAllApps()
 {
@@ -29,16 +30,17 @@ void syncMasterVolumeToAllApps()
   float volume = 0.0f;
   endpointVolume->GetChannelVolumeLevelScalar(0, &volume);
 
-  if(old_volume != volume) {
-    mmDevice->Activate(__uuidof(IAudioSessionManager2), CLSCTX_ALL, 0, (void **) &sessionManager);
+  mmDevice->Activate(__uuidof(IAudioSessionManager2), CLSCTX_ALL, 0, (void **) &sessionManager);
+  sessionManager->GetSessionEnumerator(&sessionEnum);
+  int sessionCount;
+  sessionEnum->GetCount(&sessionCount);
+
+  if(old_volume != volume || sessionCount != sessionCountOld)
+  {
     std::cout << "Sync to Mastervolume: " << volume << std::endl;
 
-
-    sessionManager->GetSessionEnumerator(&sessionEnum);
-
-    int sessionCount;
-    sessionEnum->GetCount(&sessionCount);
-    for (int i = 0; i < sessionCount; i++) {
+    for (int i = 0; i < sessionCount; i++)
+    {
       sessionEnum->GetSession(i, &sessionControl);
       sessionControl->QueryInterface(__uuidof(ISimpleAudioVolume), (void **) &audioVolume);
 
@@ -52,6 +54,8 @@ void syncMasterVolumeToAllApps()
     sessionManager->Release();
     old_volume = volume;
   }
+
+  sessionCountOld = sessionCount;
   endpointVolume->Release();
   mmDevice->Release();
   mmDeviceEnum->Release();
@@ -60,7 +64,7 @@ void syncMasterVolumeToAllApps()
 int main() {
   CoInitialize(nullptr);
 
-  std::cout << "Volsync v1.0" << std::endl;
+  std::cout << "Volsync v1.1" << std::endl;
   while(true)
   {
     syncMasterVolumeToAllApps();
